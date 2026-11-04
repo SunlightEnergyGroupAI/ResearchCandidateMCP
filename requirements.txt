@@ -1,0 +1,8 @@
+fastmcp>=0.4.0
+crawl4ai
+requests
+duckduckgo_search
+apify-client
+asyncio  
+requests
+
