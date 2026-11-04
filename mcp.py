@@ -33,6 +33,9 @@ comboSearch_description = """
 """
 
 
+
+
+
 @mcp.tool(description=bing_description) 
 async def bing_search(search_query: str) -> list[str]:
     information = [] 
@@ -77,8 +80,11 @@ async def linkedInSearch(first_name: str, last_name: str, schools: list[str] | N
     run = client.actor("CP1SVZfEwWflrmWCX").call(run_input=run_input)
     for item in client.dataset(run["defaultDatasetId"]).iterate_items(): 
         candidate_info.append(item)
-    return candidate_info[0]
-    
+    return candidate_info[0] 
+
+
+
+mcp.run(transport='http')
 
 
     
