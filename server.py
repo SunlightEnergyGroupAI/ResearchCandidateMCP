@@ -1,6 +1,5 @@
 from fastmcp import FastMCP, FastMCPApp
 from ddgs import DDGS 
-from crawl4ai import AsyncWebCrawler 
 from apify_client import ApifyClient   
 import asyncio 
 from dotenv import load_dotenv  
