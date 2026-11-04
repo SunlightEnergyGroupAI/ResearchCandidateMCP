@@ -1,4 +1,4 @@
-from fastmcp import FastMCP  
+from fastmcp import FastMCP, FastMCPApp
 from ddgs import DDGS 
 from crawl4ai import AsyncWebCrawler 
 from apify_client import ApifyClient   
@@ -14,7 +14,7 @@ mcp = FastMCP()
 bing_description = """ 
 
 
-# """ 
+""" 
 
 yandex_description = """ 
 
