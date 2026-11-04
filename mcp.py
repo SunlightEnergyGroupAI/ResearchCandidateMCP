@@ -1,0 +1,91 @@
+from fastmcp import FastMCP  
+from ddgs import DDGS 
+from crawl4ai import AsyncWebCrawler 
+from apify_client import ApifyClient   
+import asyncio 
+from dotenv import load_dotenv  
+import os  
+import requests
+
+load_dotenv()
+client = ApifyClient("")
+
+mcp = FastMCP()   
+bing_description = """ 
+
+
+# """ 
+
+yandex_description = """ 
+
+
+""" 
+
+
+linkedinResearch_description = """ 
+
+
+""" 
+
+comboSearch_description = """ 
+
+
+"""
+
+
+@mcp.tool(description=bing_description) 
+async def bing_search(search_query: str) -> list[str]:
+    information = [] 
+    async with AsyncWebCrawler() as crawler: 
+        bing_results = DDGS().text(search_query, backend="bing") 
+        for result in bing_results: 
+            url = result.get("href") 
+            result = await crawler.arun(url) 
+            information.append(result.markdown) 
+    return information 
+
+@mcp.tool(description=yandex_description) 
+async def yandex_search(search_query: str) -> list[str]: 
+    information = [] 
+    async with AsyncWebCrawler() as crawler: 
+            bing_results = DDGS().text(search_query, backend="yandex") 
+            for result in bing_results: 
+                url = result.get("href") 
+                result = await crawler.arun(url) 
+                information.append(result.markdown) 
+    return information  
+
+
+@mcp.tool(description=comboSearch_description) 
+async def comboSearch(search_query: str) -> list[str]: 
+    return asyncio.run(yandex_search(search_query)) + asyncio.run(bing_search(search_query))
+
+
+@mcp.tool(description=linkedinResearch_description) 
+async def linkedInSearch(first_name: str, last_name: str, schools: list[str] | None = []) -> dict: 
+    client = ApifyClient(os.getenv("APIFY_API_KEY")) 
+    candidate_info = []
+    run_input = {
+        "profileScraperMode": "Full",
+        "firstName": first_name,
+        "lastName": last_name,
+        "strictSearch": True,
+        "maxPages": 1, 
+        "schools": schools,
+        "maxItems": 1
+    }
+    run = client.actor("CP1SVZfEwWflrmWCX").call(run_input=run_input)
+    for item in client.dataset(run["defaultDatasetId"]).iterate_items(): 
+        candidate_info.append(item)
+    return candidate_info[0]
+    
+
+
+    
+             
+
+        
+
+
+
+
