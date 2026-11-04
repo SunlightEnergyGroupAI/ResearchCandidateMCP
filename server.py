@@ -11,23 +11,38 @@ load_dotenv()
 client = ApifyClient("")
 
 mcp = FastMCP()   
+
 bing_description = """ 
+Searches bing search engine, and provides the information found from the following sources
 
-
+Args: 
+search_query: str (the query given to the search engine)
 """ 
 
 yandex_description = """ 
+Searches yandex search engine, and provides the information found from the following sources
 
-
+Args: 
+search_query: str (the query given to the search engine)
 """ 
 
 
-linkedinResearch_description = """ 
+linkedinResearch_description = """  
+Searches LinkedIn, and returns candidate information 
+
+Args: 
+first_name: str, 
+last_name: str, 
+schools: list[str] | None = []
 
 
 """ 
 
 comboSearch_description = """ 
+Searches yandex and bing search engine, and provides the information found from the following sources
+
+Args: 
+search_query: str (the query given to both search engines)
 
 
 """
