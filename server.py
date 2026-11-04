@@ -27,7 +27,7 @@ search_query: str (the query given to the search engine)
 """ 
 
 
-linkedinResearch_description = """  
+linkedinResearch_description = """ 
 Searches LinkedIn, and returns candidate information 
 
 Args: 
