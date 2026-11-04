@@ -8,23 +8,22 @@ import os
 import requests
 
 load_dotenv()
-client = ApifyClient("")
 
 mcp = FastMCP()   
 
-bing_description = """ 
-Searches bing search engine, and provides the information found from the following sources
+# bing_description = """ 
+# Searches bing search engine, and provides the information found from the following sources
 
-Args: 
-search_query: str (the query given to the search engine)
-""" 
+# Args: 
+# search_query: str (the query given to the search engine)
+# """ 
 
-yandex_description = """ 
-Searches yandex search engine, and provides the information found from the following sources
+# yandex_description = """ 
+# Searches yandex search engine, and provides the information found from the following sources
 
-Args: 
-search_query: str (the query given to the search engine)
-""" 
+# Args: 
+# search_query: str (the query given to the search engine)
+# """ 
 
 
 linkedinResearch_description = """ 
@@ -38,45 +37,45 @@ schools: list[str] | None = []
 
 """ 
 
-comboSearch_description = """ 
-Searches yandex and bing search engine, and provides the information found from the following sources
+# comboSearch_description = """ 
+# Searches yandex and bing search engine, and provides the information found from the following sources
 
-Args: 
-search_query: str (the query given to both search engines)
-
-
-"""
+# Args: 
+# search_query: str (the query given to both search engines)
 
 
+# """
 
 
 
-@mcp.tool(description=bing_description) 
-async def bing_search(search_query: str) -> list[str]:
-    information = [] 
-    async with AsyncWebCrawler() as crawler: 
-        bing_results = DDGS().text(search_query, backend="bing") 
-        for result in bing_results: 
-            url = result.get("href") 
-            result = await crawler.arun(url) 
-            information.append(result.markdown) 
-    return information 
-
-@mcp.tool(description=yandex_description) 
-async def yandex_search(search_query: str) -> list[str]: 
-    information = [] 
-    async with AsyncWebCrawler() as crawler: 
-            bing_results = DDGS().text(search_query, backend="yandex") 
-            for result in bing_results: 
-                url = result.get("href") 
-                result = await crawler.arun(url) 
-                information.append(result.markdown) 
-    return information  
 
 
-@mcp.tool(description=comboSearch_description) 
-async def comboSearch(search_query: str) -> list[str]: 
-    return asyncio.run(yandex_search(search_query)) + asyncio.run(bing_search(search_query))
+# @mcp.tool(description=bing_description) 
+# async def bing_search(search_query: str) -> list[str]:
+#     information = [] 
+#     async with AsyncWebCrawler() as crawler: 
+#         bing_results = DDGS().text(search_query, backend="bing") 
+#         for result in bing_results: 
+#             url = result.get("href") 
+#             result = await crawler.arun(url) 
+#             information.append(result.markdown) 
+#     return information 
+
+# @mcp.tool(description=yandex_description) 
+# async def yandex_search(search_query: str) -> list[str]: 
+#     information = [] 
+#     async with AsyncWebCrawler() as crawler: 
+#             bing_results = DDGS().text(search_query, backend="yandex") 
+#             for result in bing_results: 
+#                 url = result.get("href") 
+#                 result = await crawler.arun(url) 
+#                 information.append(result.markdown) 
+#     return information  
+
+
+# @mcp.tool(description=comboSearch_description) 
+# async def comboSearch(search_query: str) -> list[str]: 
+#     return await asyncio.run(yandex_search(search_query)) + await asyncio.run(bing_search(search_query))
 
 
 @mcp.tool(description=linkedinResearch_description) 
@@ -102,7 +101,6 @@ async def linkedInSearch(first_name: str, last_name: str, schools: list[str] | N
 mcp.run(transport='http')
 
 
-    
              
 
         
