@@ -8,7 +8,7 @@ import requests
 
 load_dotenv()
 
-mcp = FastMCP()   
+mcp = FastMCP("Candidate Research")   
 
 # bing_description = """ 
 # Searches bing search engine, and provides the information found from the following sources
@@ -97,7 +97,7 @@ async def linkedInSearch(first_name: str, last_name: str, schools: list[str] | N
 
 
 
-mcp.run(transport='http')
+mcp.run()
 
 
              
