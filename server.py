@@ -22,7 +22,7 @@ schools: list[str] | None = []
 """ 
 
 @mcp.tool(description=linkedinResearch_description) 
-async def linkedInSearch(first_name: str, last_name: str) -> dict: 
+async def linkedInSearch(first_name: str, last_name: str, schools: list[str] | None = [], locations: list[str] | None = []) -> dict: 
     client = ApifyClient(token="apify_api_g1sUfOUOUoz66mERxN1r9LCRUTObgl35hOxa") 
     candidate_info = []
     run_input = {
@@ -31,7 +31,9 @@ async def linkedInSearch(first_name: str, last_name: str) -> dict:
         "lastName": last_name,
         "strictSearch": True,
         "maxPages": 1, 
-        "maxItems": 1
+        "maxItems": 5, 
+        "schools": schools, 
+        "locations": locations
     }
     run = client.actor("CP1SVZfEwWflrmWCX").call(run_input=run_input)
     for item in client.dataset(run["defaultDatasetId"]).iterate_items(): 
