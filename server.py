@@ -1,15 +1,8 @@
 from fastmcp import FastMCP, FastMCPApp
-from ddgs import DDGS 
 from apify_client import ApifyClient   
-import asyncio 
 from dotenv import load_dotenv  
 import os  
 import requests 
-from langchain_text_splitters import RecursiveCharacterTextSplitter 
-from langchain_core.vectorstores import InMemoryVectorStore
-from langchain_ollama.embeddings import OllamaEmbeddings 
-from langchain_classic.retrievers import BM25Retriever
-
 
 
 
