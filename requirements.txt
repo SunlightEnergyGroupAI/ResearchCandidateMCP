@@ -1,3 +1,4 @@
 fastmcp
 apify-client==2.5.0
-requests 
+requests  
+asyncio

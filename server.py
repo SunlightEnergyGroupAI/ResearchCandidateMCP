@@ -2,6 +2,7 @@ from fastmcp import FastMCP, FastMCPApp
 from apify_client import ApifyClient   
 import os  
 import requests 
+import asyncio
 
 
 
@@ -26,7 +27,7 @@ dict
 """ 
 
 @mcp.tool(description=linkedinResearch_description) 
-def linkedInSearch(first_name: str, last_name: str, schools: list[str] | None = [], locations: list[str] | None = []) -> list[dict]: 
+async def linkedInSearch(first_name: str, last_name: str, schools: list[str] | None = [], locations: list[str] | None = []) -> list[dict]: 
     client = ApifyClient(token="apify_api_g1sUfOUOUoz66mERxN1r9LCRUTObgl35hOxa") 
     candidate_info = []
     run_input = {
