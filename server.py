@@ -37,7 +37,7 @@ async def linkedInSearch(first_name: str, last_name: str, schools: list[str] | N
         "strictSearch": True,
         "maxPages": 1, 
         "maxItems": 5, 
-        "schools": schools, 
+        "schools": schools,
         "locations": locations
     }
     run = client.actor("CP1SVZfEwWflrmWCX").call(run_input=run_input)
@@ -47,7 +47,6 @@ async def linkedInSearch(first_name: str, last_name: str, schools: list[str] | N
 
 
 
-mcp.run()
 
 
              
