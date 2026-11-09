@@ -1,5 +1,4 @@
 fastmcp
-ddgs
-apify-client
-python-dotenv 
+apify_client
+dotenv
 requests
