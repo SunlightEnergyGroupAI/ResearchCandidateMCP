@@ -26,7 +26,7 @@ dict
 """ 
 
 @mcp.tool(description=linkedinResearch_description) 
-def linkedInSearch(first_name: str, last_name: str, schools: list[str] | None = [], locations: list[str] | None = []) -> dict: 
+def linkedInSearch(first_name: str, last_name: str, schools: list[str] | None = [], locations: list[str] | None = []) -> list[dict]: 
     client = ApifyClient(token="apify_api_g1sUfOUOUoz66mERxN1r9LCRUTObgl35hOxa") 
     candidate_info = []
     run_input = {
