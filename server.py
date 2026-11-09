@@ -2,12 +2,11 @@ from fastmcp import FastMCP, FastMCPApp
 from apify_client import ApifyClient   
 import os  
 import requests 
-from dotenv import load_dotenv
+
 
 
 #co
-load_dotenv()
-APIKEY = os.getenv("APIFY_API_KEY")
+APIKEY = "apify_api_g1sUfOUOUoz66mERxN1r9LCRUTObgl35hOxa"
 
 mcp = FastMCP("Candidate Research")    
 
