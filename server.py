@@ -23,7 +23,7 @@ schools: list[str] | None = []
 
 @mcp.tool(description=linkedinResearch_description) 
 async def linkedInSearch(first_name: str, last_name: str, schools: list[str] | None = []) -> dict: 
-    client = ApifyClient(APIKEY) 
+    client = ApifyClient(token="apify_api_g1sUfOUOUoz66mERxN1r9LCRUTObgl35hOxa") 
     candidate_info = []
     run_input = {
         "profileScraperMode": "Full",
