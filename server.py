@@ -16,7 +16,11 @@ Searches LinkedIn, and returns candidate information
 Args: 
 first_name: str, 
 last_name: str, 
-schools: list[str] | None = []
+schools: list[str] | None = [] 
+locations: list[str] | None = []   
+
+Return: 
+dict
 
 
 """ 
