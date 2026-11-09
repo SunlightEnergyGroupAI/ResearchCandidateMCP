@@ -1,13 +1,13 @@
 from fastmcp import FastMCP, FastMCPApp
 from apify_client import ApifyClient   
-from dotenv import load_dotenv  
 import os  
 import requests 
 
 
 
 
-load_dotenv()
+APIFY_API_KEY = "apify_api_g1sUfOUOUoz66mERxN1r9LCRUTObgl35hOxa"
+
 
 mcp = FastMCP("Candidate Research")    
 
@@ -24,7 +24,7 @@ schools: list[str] | None = []
 
 @mcp.tool(description=linkedinResearch_description) 
 async def linkedInSearch(first_name: str, last_name: str, schools: list[str] | None = []) -> dict: 
-    client = ApifyClient(os.getenv("APIFY_API_KEY")) 
+    client = ApifyClient(APIFY_API_KEY) 
     candidate_info = []
     run_input = {
         "profileScraperMode": "Full",
