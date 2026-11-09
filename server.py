@@ -34,7 +34,7 @@ async def linkedInSearch(first_name: str, last_name: str) -> dict:
         "maxItems": 1
     }
     run = client.actor("CP1SVZfEwWflrmWCX").call(run_input=run_input)
-    for item in client.dataset(run.default_dataset_id).iterate_items():        
+    for item in client.dataset(run["defaultDatasetId"]).iterate_items(): 
         candidate_info.append(item)
     return candidate_info[0] 
 
