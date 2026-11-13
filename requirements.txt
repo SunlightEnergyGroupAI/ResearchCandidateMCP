@@ -1,5 +1,8 @@
 # Requires Python 3.11
 fastmcp
 apify-client==2.5.0
-requests  
-asyncio
+python-dotenv
+ddgs
+langchain-core
+rank-bm25
+sentence-transformers
