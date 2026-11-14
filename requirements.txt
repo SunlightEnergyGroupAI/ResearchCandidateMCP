@@ -3,7 +3,12 @@ fastmcp
 apify-client==2.5.0
 python-dotenv
 ddgs
+tavily-python
+httpx
+trafilatura
+lxml_html_clean
 langchain-core
+langchain-text-splitters
 rank-bm25
 fastembed
 numpy
