@@ -1,3 +1,4 @@
+# Jims Candidate MCP server
 from fastmcp import FastMCP
 from apify_client import ApifyClient
 from dotenv import load_dotenv
