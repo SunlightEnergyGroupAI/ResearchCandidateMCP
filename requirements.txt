@@ -5,4 +5,5 @@ python-dotenv
 ddgs
 langchain-core
 rank-bm25
-sentence-transformers
+fastembed
+numpy

@@ -3,10 +3,14 @@ from apify_client import ApifyClient
 from dotenv import load_dotenv
 from ddgs import DDGS
 from rank_bm25 import BM25Okapi
-from sentence_transformers import SentenceTransformer, CrossEncoder
+from fastembed import TextEmbedding
+from fastembed.rerank.cross_encoder import TextCrossEncoder
 from langchain_core.documents import Document
+from functools import cache
+import numpy as np
 import os
 import re
+import sys
 import asyncio
 
 
@@ -14,9 +18,6 @@ load_dotenv()
 apifyKey = os.getenv("APIFY_API_KEY")
 
 mcp = FastMCP("Candidate Research")
-
-embeddingsModel = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-rerankerModel = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
 
 searchEngines = ["yahoo", "yandex", "bing", "wikipedia"]
 resultsPerEngine = 10
@@ -69,11 +70,27 @@ async def linkedInSearch(first_name: str, last_name: str, schools: list[str] | N
     return candidate_info
 
 
+# loaded on first megaSearch call so the server starts fast
+@cache
+def getEmbeddingsModel() -> TextEmbedding:
+    return TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
+
+
+@cache
+def getRerankerModel() -> TextCrossEncoder:
+    return TextCrossEncoder("Xenova/ms-marco-MiniLM-L-6-v2")
+
+
+def embedTexts(texts: list[str]) -> np.ndarray:
+    embeddings = np.array(list(getEmbeddingsModel().embed(texts)))
+    return embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
+
+
 def searchEngine(query: str, engine: str) -> list[Document]:
     try:
         engineResults = DDGS().text(query, backend=engine, max_results=resultsPerEngine)
     except Exception as e:
-        print(f"{engine} search failed: {e}")
+        print(f"{engine} search failed: {e}", file=sys.stderr)
         return []
     documents = []
     for result in engineResults:
@@ -117,8 +134,8 @@ def hybridSearch(query: str, documents: list[Document]) -> list[Document]:
     bm25 = BM25Okapi([tokenize(text) for text in texts])
     bm25Scores = bm25.get_scores(tokenize(query)).tolist()
 
-    queryEmbedding = embeddingsModel.encode(query, normalize_embeddings=True)
-    documentEmbeddings = embeddingsModel.encode(texts, normalize_embeddings=True)
+    queryEmbedding = embedTexts([query])[0]
+    documentEmbeddings = embedTexts(texts)
     denseScores = (documentEmbeddings @ queryEmbedding).tolist()
 
     bm25Ranks = rankPositions(bm25Scores)
@@ -132,10 +149,10 @@ def hybridSearch(query: str, documents: list[Document]) -> list[Document]:
 
 
 def rerankDocuments(query: str, documents: list[Document], top_k: int) -> list[Document]:
-    pairs = [(query, document.page_content) for document in documents]
-    rerankScores = rerankerModel.predict(pairs).tolist()
+    texts = [document.page_content for document in documents]
+    rerankScores = list(getRerankerModel().rerank(query, texts))
     for document, score in zip(documents, rerankScores):
-        document.metadata["rerank_score"] = round(score, 4)
+        document.metadata["rerank_score"] = round(float(score), 4)
     rerankedDocuments = sorted(documents, key=lambda document: document.metadata["rerank_score"], reverse=True)
     return rerankedDocuments[:top_k]
 
@@ -151,8 +168,9 @@ async def megaSearch(search_query: str, top_k: int = 5) -> list[Document]:
         documents = removeDuplicates(documents)
         if not documents:
             return []
-        candidates = hybridSearch(search_query, documents)[:rerankCandidates]
-        return rerankDocuments(search_query, candidates, top_k)
+        rankedDocuments = await asyncio.to_thread(hybridSearch, search_query, documents)
+        candidates = rankedDocuments[:rerankCandidates]
+        return await asyncio.to_thread(rerankDocuments, search_query, candidates, top_k)
     except Exception as e:
         return [Document(page_content=f"Error occurred: {e}", metadata={})]
 
