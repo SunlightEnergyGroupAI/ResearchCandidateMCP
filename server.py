@@ -19,7 +19,8 @@ import trafilatura
 import os
 import re
 import sys
-import asyncio
+import asyncio 
+import requests
 
 
 load_dotenv()
@@ -99,8 +100,26 @@ Args:
 
 Returns:
 - dict with email, score (confidence 0-100), position, company, domain, verification and sources, or an error
-"""
+""" 
 
+# instantSearchDescription = """  
+# # Search engine that provides instant results however the search query must be basic as it is good for Entity summaries 
+
+# # Args: 
+# # - search_query: str 
+
+# # Returns: 
+# # - list[str] (information returned)
+# # """
+# @mcp.tool(description=instantSearchDescription, tags={"research"})
+# def useInstantSearch(search_query: str) -> tuple[str]:   
+#     url = f"https://api.duckduckgo.com/?q={search_query}&format=json"
+#     response = requests.get(url) 
+#     data = response.json() 
+#     abstract_info = data.get("Abstract", "NOTHING FOUND") 
+#     source = data.get("AbstractSource", "NOTHING FOUND") 
+#     return (abstract_info, source)
+#     ...
 
 @mcp.tool(description=linkedinResearch_description, tags={"research"})
 async def linkedInSearch(first_name: str, last_name: str, schools: list[str] | None = [], locations: list[str] | None = []) -> list[dict]:
@@ -305,7 +324,9 @@ async def megaSearch(search_query: str, top_k: int = 5) -> list[Document]:
         rerankedChunks = await asyncio.to_thread(rerankDocuments, search_query, rankedChunks[:rerankCandidates])
         return pickTopResults(rerankedChunks, top_k)
     except Exception as e:
-        return [Document(page_content=f"Error occurred: {e}", metadata={})]
+        return [Document(page_content=f"Error occurred: {e}", metadata={})] 
+
+
 
 
 @mcp.tool(description=findEmail_description, tags={"recruiting"})

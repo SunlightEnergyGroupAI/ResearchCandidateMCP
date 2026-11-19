@@ -11,4 +11,5 @@ langchain-core
 langchain-text-splitters
 rank-bm25
 fastembed
-numpy
+numpy 
+requests
