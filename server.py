@@ -40,11 +40,11 @@ rerankCandidates = 30
 fetchTimeout = 10
 fetchHeaders = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"}
 
-#Cost: $0.10 per search page + $0.004 per full profile, so 25 profiles is about $0.20 a search
+#Cost: $0.10 per search page + $0.004 per full profile, so 50 profiles is about $0.40 a search
 #Filters sent to the actor (titles, locations, headcount, searchQuery) are free, profiles scraped are not
-#An energy_search runs the actor 3 times, so it costs about $0.60
+#An energy_search runs the actor 3 times, so it scans 150 profiles and costs about $1.20
 profileSearchActor = "M2FMdjRVeF1HPGFcc"
-profilesToScan = 25
+profilesToScan = 50
 candidatesToReturn = 5
 minGapMonths = 3
 experienceBuckets = {"1": (0, 1), "2": (1, 2), "3": (3, 5), "4": (6, 10), "5": (10, 60)} #actor yearsOfExperienceIds
