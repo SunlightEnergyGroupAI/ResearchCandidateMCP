@@ -1,5 +1,5 @@
 # Jims Candidate MCP server
-# v2.2
+# v2.3
 from fastmcp import FastMCP
 from apify_client import ApifyClient, ApifyClientAsync
 from dotenv import load_dotenv
@@ -42,6 +42,7 @@ fetchHeaders = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) A
 
 #Cost: $0.10 per search page + $0.004 per full profile, so 25 profiles is about $0.20 a search
 #Filters sent to the actor (titles, locations, headcount, searchQuery) are free, profiles scraped are not
+#An energy_search runs the actor 3 times, so it costs about $0.60
 profileSearchActor = "M2FMdjRVeF1HPGFcc"
 profilesToScan = 25
 candidatesToReturn = 5
@@ -50,6 +51,11 @@ experienceBuckets = {"1": (0, 1), "2": (1, 2), "3": (3, 5), "4": (6, 10), "5": (
 smallMidHeadcounts = ["B", "C", "D", "E", "F"] #1 to 1,000 employees
 territoryStates = ["Maryland", "Delaware", "New Jersey", "Pennsylvania", "New York", "Connecticut", "Massachusetts", "Rhode Island"]
 energySearchQuery = '"energy procurement" OR "energy broker" OR "retail energy" OR "electricity supply" OR "natural gas supply" OR "deregulated"'
+energyTitles = [
+    "Energy Consultant", "Energy Advisor", "Energy Broker", "Energy Account Executive",
+    "Energy Account Manager", "Energy Sales Representative", "Energy Procurement Specialist",
+    "Energy Procurement Manager", "Energy Sales Consultant",
+]
 energyKeywords = [
     "energy procurement", "energy broker", "energy brokerage", "retail energy", "electricity supply",
     "natural gas supply", "electric and gas", "power and gas", "deregulated", "commercial energy",
@@ -87,14 +93,14 @@ Returns:
 """
 
 findSalesCandidates_description = """
-Recruiting tool: finds salespeople on LinkedIn in SEG's territory (MD, DE, NJ, PA, NY, CT, MA, RI) by current job title and years of experience. Leaves out anyone outside the territory or experience range, with large employment gaps, or who changes jobs too often, and checks each person's full work history for energy procurement. Returns up to 5 candidates, energy matches first.
+Recruiting tool: finds salespeople on LinkedIn in SEG's territory (MD, DE, NJ, PA, NY, CT, MA, RI) by current job title and years of experience. Leaves out anyone outside the requested locations or experience range, with large employment gaps, or who changes jobs too often, and checks each person's full work history for energy procurement. Returns up to 5 candidates, energy matches first.
 
 Args:
 - job_titles: list[str] (current job titles to search e.g ["Energy Consultant", "Account Executive"])
 - locations: list[str] | None (states or cities inside SEG's territory e.g ["Maryland", "Baltimore"], default is the whole territory)
 - min_years: int (minimum years of experience, default 0)
 - max_years: int (maximum years of experience, default 40)
-- energy_search: bool (only search profiles that mention energy procurement terms like "energy broker" or "retail energy"; use for Account Executive and Account Manager, default False)
+- energy_search: bool (also searches people currently in energy sales titles like "Energy Consultant", people in the job titles who held an energy title before, and the job titles with energy procurement terms on their profile; use for Account Executive and Account Manager, default False)
 - require_energy: bool (only return people whose work history matched energy procurement, default False)
 - small_mid_companies_only: bool (only people whose current company has 1,000 employees or fewer, default True)
 - max_gap_months: int (leave out anyone with an employment gap longer than this many months, default 6)
@@ -524,8 +530,18 @@ def isInTerritory(candidate: dict) -> bool:
     return True
 
 
-def isGoodCandidate(candidate: dict, max_gap_months: int, min_average_tenure_months: int, min_years: int, max_years: int, require_energy: bool) -> bool:
+def isInRequestedLocations(candidate: dict, locations: list[str] | None) -> bool:
+    # cities and metro areas can't be checked against a state, so only state searches are narrowed
+    requestedStates = [location for location in locations or [] if location in territoryStates]
+    if not requestedStates or not candidate["state"]:
+        return True
+    return candidate["state"] in requestedStates
+
+
+def isGoodCandidate(candidate: dict, locations: list[str] | None, max_gap_months: int, min_average_tenure_months: int, min_years: int, max_years: int, require_energy: bool) -> bool:
     if not isInTerritory(candidate):
+        return False
+    if not isInRequestedLocations(candidate, locations):
         return False
     if candidate["years_experience"] < min_years or candidate["years_experience"] > max_years:
         return False
@@ -546,30 +562,57 @@ def pickExperienceIds(min_years: int, max_years: int) -> list[str]:
     return experienceIds
 
 
+def buildSearchInputs(job_titles: list[str], locations: list[str] | None, min_years: int, max_years: int, energy_search: bool, small_mid_companies_only: bool) -> list[dict]:
+    """
+    One actor run normally. An energy_search does three runs, since energy reps are
+    rarely titled "Account Executive": people currently in energy sales titles, people
+    in the job titles who held an energy title before, and the job titles with energy
+    procurement terms anywhere on the profile.
+    """
+    baseInput = {
+        "profileScraperMode": "Full",
+        "locations": locations or territoryStates,
+        "yearsOfExperienceIds": pickExperienceIds(min_years, max_years),
+        "maxItems": profilesToScan
+    }
+    if small_mid_companies_only:
+        baseInput["companyHeadcount"] = smallMidHeadcounts
+    if not energy_search:
+        return [{**baseInput, "currentJobTitles": job_titles}]
+    return [
+        {**baseInput, "currentJobTitles": energyTitles},
+        {**baseInput, "currentJobTitles": job_titles, "pastJobTitles": energyTitles},
+        {**baseInput, "currentJobTitles": job_titles, "searchQuery": energySearchQuery}
+    ]
+
+
+async def runProfileSearch(client: ApifyClientAsync, run_input: dict) -> list[dict]:
+    run = await client.actor(profileSearchActor).call(run_input=run_input)
+    profiles = []
+    async for profile in client.dataset(run["defaultDatasetId"]).iterate_items():
+        profiles.append(profile)
+    return profiles
+
+
 @mcp.tool(description=findSalesCandidates_description, tags={"recruiting"})
 async def findSalesCandidates(job_titles: list[str], locations: list[str] | None = None, min_years: int = 0, max_years: int = 40, energy_search: bool = False, require_energy: bool = False, small_mid_companies_only: bool = True, max_gap_months: int = 6, min_average_tenure_months: int = 12) -> list[dict]:
     if min_years > max_years:
         return [{"error": f"min_years ({min_years}) is bigger than max_years ({max_years})"}]
     try:
-        run_input = {
-            "profileScraperMode": "Full",
-            "currentJobTitles": job_titles,
-            "locations": locations or territoryStates,
-            "yearsOfExperienceIds": pickExperienceIds(min_years, max_years),
-            "maxItems": profilesToScan
-        }
-        if small_mid_companies_only:
-            run_input["companyHeadcount"] = smallMidHeadcounts
-        if energy_search:
-            run_input["searchQuery"] = energySearchQuery
         client = ApifyClientAsync(token=apifyKey)
-        run = await client.actor(profileSearchActor).call(run_input=run_input)
+        searchInputs = buildSearchInputs(job_titles, locations, min_years, max_years, energy_search, small_mid_companies_only)
+        searchResults = await asyncio.gather(*[runProfileSearch(client, run_input) for run_input in searchInputs])
         candidates = []
-        async for profile in client.dataset(run["defaultDatasetId"]).iterate_items():
-            candidate = summarizeCandidate(profile)
-            if not isGoodCandidate(candidate, max_gap_months, min_average_tenure_months, min_years, max_years, require_energy):
-                continue
-            candidates.append(candidate)
+        seenUrls = set()
+        for profiles in searchResults:
+            for profile in profiles:
+                candidate = summarizeCandidate(profile)
+                if candidate["linkedin_url"] in seenUrls:
+                    continue
+                seenUrls.add(candidate["linkedin_url"])
+                if not isGoodCandidate(candidate, locations, max_gap_months, min_average_tenure_months, min_years, max_years, require_energy):
+                    continue
+                candidates.append(candidate)
         candidates.sort(key=lambda candidate: len(candidate["energy_evidence"]), reverse=True)
         return candidates[:candidatesToReturn]
     except Exception as e:
