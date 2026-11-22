@@ -1,5 +1,5 @@
 # Jims Candidate MCP server
-# v2.3
+# v2.4
 from fastmcp import FastMCP
 from apify_client import ApifyClient, ApifyClientAsync
 from dotenv import load_dotenv
@@ -43,8 +43,10 @@ fetchHeaders = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) A
 #Cost: $0.10 per search page + $0.004 per full profile, so 50 profiles is about $0.40 a search
 #Filters sent to the actor (titles, locations, headcount, searchQuery) are free, profiles scraped are not
 #An energy_search runs the actor 3 times, so it scans 150 profiles and costs about $1.20
+#Each name in exclude_names adds one profile per run, up to maxProfilesToScan
 profileSearchActor = "M2FMdjRVeF1HPGFcc"
 profilesToScan = 50
+maxProfilesToScan = 150 #cap so a long seen list can't run up the actor bill
 candidatesToReturn = 5
 minGapMonths = 3
 experienceBuckets = {"1": (0, 1), "2": (1, 2), "3": (3, 5), "4": (6, 10), "5": (10, 60)} #actor yearsOfExperienceIds
@@ -93,7 +95,7 @@ Returns:
 """
 
 findSalesCandidates_description = """
-Recruiting tool: finds salespeople on LinkedIn in SEG's territory (MD, DE, NJ, PA, NY, CT, MA, RI) by current job title and years of experience. Leaves out anyone outside the requested locations or experience range, with large employment gaps, or who changes jobs too often, and checks each person's full work history for energy procurement. Returns up to 5 candidates, energy matches first.
+Recruiting tool: finds salespeople on LinkedIn in SEG's territory (MD, DE, NJ, PA, NY, CT, MA, RI) by current job title and years of experience. Leaves out anyone outside the requested locations or experience range, with large employment gaps, who changes jobs too often, or who was already seen, and checks each person's full work history for energy procurement. Returns up to 5 candidates, energy matches first.
 
 Args:
 - job_titles: list[str] (current job titles to search e.g ["Energy Consultant", "Account Executive"])
@@ -105,6 +107,7 @@ Args:
 - small_mid_companies_only: bool (only people whose current company has 1,000 employees or fewer, default True)
 - max_gap_months: int (leave out anyone with an employment gap longer than this many months, default 6)
 - min_average_tenure_months: int (leave out anyone whose average time per company is shorter than this many months, default 12)
+- exclude_names: list[str] | None (names already seen, e.g. every line of people.txt; these people are skipped before the top 5 are picked)
 
 Returns:
 - list of up to 5 dicts with name, headline, current_role, location, linkedin_url, open_to_work, years_experience, companies, average_tenure_months, longest_gap_months, gaps (each gap has from, to and months) and energy_evidence (each matched job as "title at company (matched 'keyword')", flagged when the job mentions solar)
@@ -123,24 +126,27 @@ Returns:
 - dict with email, score (confidence 0-100), position, company, domain, verification and sources, or an error
 """ 
 
-# instantSearchDescription = """  
-# # Search engine that provides instant results however the search query must be basic as it is good for Entity summaries 
+instantSearchDescription = """  
+# Search engine that provides instant results however the search query must be basic as it is good for Entity summaries 
 
-# # Args: 
-# # - search_query: str 
+# Args: 
+# - search_query: str 
 
-# # Returns: 
-# # - list[str] (information returned)
-# # """
-# @mcp.tool(description=instantSearchDescription, tags={"research"})
-# def useInstantSearch(search_query: str) -> tuple[str]:   
-#     url = f"https://api.duckduckgo.com/?q={search_query}&format=json"
-#     response = requests.get(url) 
-#     data = response.json() 
-#     abstract_info = data.get("Abstract", "NOTHING FOUND") 
-#     source = data.get("AbstractSource", "NOTHING FOUND") 
-#     return (abstract_info, source)
-#     ...
+# Returns: 
+# - list[str] (information returned)
+# """
+@mcp.tool(description=instantSearchDescription, tags={"research"})
+def useInstantSearch(search_query: str) -> tuple[str] | str: 
+    try:   
+        url = f"https://api.duckduckgo.com/?q={search_query}&format=json"
+        response = requests.get(url) 
+        data = response.json() 
+        abstract_info = data.get("Abstract", "NOTHING FOUND") 
+        source = data.get("AbstractSource", "NOTHING FOUND") 
+        return (abstract_info, source) 
+    except: 
+        return "Tool did not work"
+    
 
 @mcp.tool(description=linkedinResearch_description, tags={"research"})
 async def linkedInSearch(first_name: str, last_name: str, schools: list[str] | None = [], locations: list[str] | None = []) -> list[dict]:
@@ -521,6 +527,11 @@ def summarizeCandidate(profile: dict) -> dict:
     }
 
 
+def normalizeName(name: str) -> str:
+    # "Evan A.  Sooby" and "evan a. sooby" count as the same person
+    return " ".join(name.lower().split())
+
+
 def isInTerritory(candidate: dict) -> bool:
     if candidate["country_code"] != "US":
         return False
@@ -562,7 +573,7 @@ def pickExperienceIds(min_years: int, max_years: int) -> list[str]:
     return experienceIds
 
 
-def buildSearchInputs(job_titles: list[str], locations: list[str] | None, min_years: int, max_years: int, energy_search: bool, small_mid_companies_only: bool) -> list[dict]:
+def buildSearchInputs(job_titles: list[str], locations: list[str] | None, min_years: int, max_years: int, energy_search: bool, small_mid_companies_only: bool, profilesScanned: int) -> list[dict]:
     """
     One actor run normally. An energy_search does three runs, since energy reps are
     rarely titled "Account Executive": people currently in energy sales titles, people
@@ -573,7 +584,7 @@ def buildSearchInputs(job_titles: list[str], locations: list[str] | None, min_ye
         "profileScraperMode": "Full",
         "locations": locations or territoryStates,
         "yearsOfExperienceIds": pickExperienceIds(min_years, max_years),
-        "maxItems": profilesToScan
+        "maxItems": profilesScanned
     }
     if small_mid_companies_only:
         baseInput["companyHeadcount"] = smallMidHeadcounts
@@ -595,12 +606,15 @@ async def runProfileSearch(client: ApifyClientAsync, run_input: dict) -> list[di
 
 
 @mcp.tool(description=findSalesCandidates_description, tags={"recruiting"})
-async def findSalesCandidates(job_titles: list[str], locations: list[str] | None = None, min_years: int = 0, max_years: int = 40, energy_search: bool = False, require_energy: bool = False, small_mid_companies_only: bool = True, max_gap_months: int = 6, min_average_tenure_months: int = 12) -> list[dict]:
+async def findSalesCandidates(job_titles: list[str], locations: list[str] | None = None, min_years: int = 0, max_years: int = 40, energy_search: bool = False, require_energy: bool = False, small_mid_companies_only: bool = True, max_gap_months: int = 6, min_average_tenure_months: int = 12, exclude_names: list[str] | None = None) -> list[dict]:
     if min_years > max_years:
         return [{"error": f"min_years ({min_years}) is bigger than max_years ({max_years})"}]
     try:
+        excludedNames = {normalizeName(name) for name in exclude_names or []}
+        # the actor returns the same top profiles each run, so scan deeper as the seen list grows
+        profilesScanned = min(profilesToScan + len(excludedNames), maxProfilesToScan)
         client = ApifyClientAsync(token=apifyKey)
-        searchInputs = buildSearchInputs(job_titles, locations, min_years, max_years, energy_search, small_mid_companies_only)
+        searchInputs = buildSearchInputs(job_titles, locations, min_years, max_years, energy_search, small_mid_companies_only, profilesScanned)
         searchResults = await asyncio.gather(*[runProfileSearch(client, run_input) for run_input in searchInputs])
         candidates = []
         seenUrls = set()
@@ -610,6 +624,8 @@ async def findSalesCandidates(job_titles: list[str], locations: list[str] | None
                 if candidate["linkedin_url"] in seenUrls:
                     continue
                 seenUrls.add(candidate["linkedin_url"])
+                if normalizeName(candidate["name"]) in excludedNames:
+                    continue
                 if not isGoodCandidate(candidate, locations, max_gap_months, min_average_tenure_months, min_years, max_years, require_energy):
                     continue
                 candidates.append(candidate)
